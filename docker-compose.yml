@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5454:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    environment:
+      - MLFLOW_TRACKING_URI=http://localhost:5000
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root /mlflow/artifacts
+
+  ml-app:
+    build: .
+    depends_on:
+      - mlflow
+    volumes:
+      - ./models:/app/models
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    # Command can be overridden to run prediction instead
+    command: python train.py
+    
+  model-serving:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./models:/app/models
+      - .:/app
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command: python app.py
+    depends_on:
+      - mlflow
+      - ml-app
+
+volumes:
+  mlflow-data: 
